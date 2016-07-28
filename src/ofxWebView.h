@@ -1,31 +1,23 @@
 /*
  *  ofxWebView.h
  *  WebView
-
  *
  *  Created by Andreas Borg on 06/04/2015
  *  Copyright 2015 __MyCompanyName__. All rights reserved.
- *  
  *
  *   Proof od concept
  *   http://forum.openframeworks.cc/t/using-cef-with-of/18094/15
- 
  *  Font rendering not so crips in texture grab...room for improvement.
  *  Also not tested with passing javascript
- 
  */
 
 #ifndef _ofxWebView
 #define _ofxWebView
 
 #include "ofMain.h"
-
 #include "ofAppGLFWWindow.h"
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
-
-
-
 
 class WebViewEvent : public ofEventArgs {
     
@@ -36,17 +28,12 @@ public:
    
 };
 
-
-
-
-
 class ofxWebView : public ofRectangle {
 	
   public:
 	
 	ofxWebView();
     ~ofxWebView();
-
     
     void loadURL(string url);
     void loadFile(string file, bool relativeToData = true);//local html
@@ -66,7 +53,12 @@ class ofxWebView : public ofRectangle {
     bool getAllowPageLoad();
     void setAllowPageLoad(bool s);
     
+    string getLastLoadFileUrl();
+    
+    string inject(string jsCode);
+    
 protected:
+    string jsCode = "";
     void setWebViewFrame(ofRectangle frame);
     
     bool _allowPageLoad;
@@ -76,29 +68,7 @@ protected:
     WebView * webView;
     NSWindow * window;
     
-
+    string lastLoadFileUrl;
 };
-
-
-
-
-
-
-
-@interface WebListener: NSObject<WebPolicyDecisionListener>{
-    ofxWebView * _ofView;
-}
-
-- (void) webView:(WebView *)webView decidePolicyForNavigationAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request  frame:(WebFrame *)frame decisionListener:(id )listener;
-
-- (void) webView:(WebView *)webView decidePolicyForNewWindowAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request frame:(WebFrame *)frame  decisionListener:(id )listener;
-
-
--(void) setOfView: (ofxWebView *) _ofView;
-
-@end;
-
-
-
 
 #endif

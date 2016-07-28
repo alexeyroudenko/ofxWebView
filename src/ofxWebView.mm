@@ -41,11 +41,11 @@ bool NSBitmapToOFTexture(NSBitmapImageRep *uiImage, ofTexture *outTexture, int t
     }
     
     // After you create the context, you can draw the sprite image to the context.
-    ofLogVerbose("ofxiOSExtras") << "ofxiOSUIImageToOFImage(): about to CGContextDrawImage";
+//    ofLogVerbose("ofxiOSExtras") << "ofxiOSUIImageToOFImage(): about to CGContextDrawImage";
     CGContextDrawImage(spriteContext, CGRectMake(0.0, 0.0, (CGFloat)width, (CGFloat)height), cgImage);
     
     // You don't need the context at this point, so you need to release it to avoid memory leaks.
-    ofLogVerbose("ofxiOSExtras") << "ofxiOSUIImageToOFImage(): about to CGContextRelease";
+//    ofLogVerbose("ofxiOSExtras") << "ofxiOSUIImageToOFImage(): about to CGContextRelease";
     CGContextRelease(spriteContext);
     
     int glMode;
@@ -70,6 +70,25 @@ bool NSBitmapToOFTexture(NSBitmapImageRep *uiImage, ofTexture *outTexture, int t
     return true;
 }
 
+@interface WebListener: NSObject <WebPolicyDelegate, WebFrameLoadDelegate> {
+    ofxWebView * _ofView;
+}
+
+// Implement PolicyDelegate
+-(void)webView:(WebView *)webView decidePolicyForNavigationAction:(NSDictionary *)actionInformation
+       request:(NSURLRequest *)request
+         frame:(WebFrame *)frame
+decisionListener:(id<WebPolicyDecisionListener>)listener;
+
+-(void)webView:(WebView *)webView decidePolicyForNewWindowAction:(NSDictionary *)actionInformation
+       request:(NSURLRequest *)request
+  newFrameName:(NSString *)frameName
+decisionListener:(id <WebPolicyDecisionListener>)listener;
+- (void) setOfView: (ofxWebView *) _ofView;
+
+- (void)mouseDown:(NSEvent *)theEvent;
+
+@end;
 
 
 
@@ -82,89 +101,109 @@ bool NSBitmapToOFTexture(NSBitmapImageRep *uiImage, ofTexture *outTexture, int t
 };
 //@synthesize _ofView;
 
-- (void) webView:(WebView *)webView decidePolicyForNavigationAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request  frame:(WebFrame *)frame decisionListener:(id )listener{
-    
-    
+-(void)webView:(WebView *)webView decidePolicyForNavigationAction:(NSDictionary *)actionInformation
+       request:(NSURLRequest *)request
+         frame:(WebFrame *)frame
+decisionListener:(id<WebPolicyDecisionListener>)listener {
+    //NSLog(@"decidePolicyForNavigationAction URL %@ ", request.URL);
     WebViewEvent e;
     e.URL = (string)[[request.URL absoluteString] UTF8String];
-    ofNotifyEvent(_ofView->LOAD_URL,e);
-    
+    ofNotifyEvent(_ofView->LOAD_URL, e);
+    //ofLogVerbose("[WebListener]" + e.URL);
     //this allows for blocking in event response
     if(_ofView->getAllowPageLoad()){
         [listener use];
-    }else{
+    } else{
         [listener ignore];
     }
-
 }
 
-
-- (void) webView:(WebView *)webView decidePolicyForNewWindowAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request frame:(WebFrame *)frame  decisionListener:(id )listener{
-    
-    NSLog(@"decidePolicyForNewWindowAction URL %@ ", request.URL);
-    
+-(void)webView:(WebView *)webView decidePolicyForNewWindowAction:(NSDictionary *)actionInformation
+       request:(NSURLRequest *)request
+  newFrameName:(NSString *)frameName
+decisionListener:(id <WebPolicyDecisionListener>)listener {
+    //NSLog(@"decidePolicyForNewWindowAction URL %@ ", request.URL);
     //to stop load
     //[listener ignore];
-    
     //or
     [listener use];
-    
 }
 
-
+- (void)mouseDown:(NSEvent *)theEvent {
+    ofLogVerbose("[WebListener] mouseDown");
+}
 
 @end;
 
-
-
-
-
 //------------------------------------------------------------------
 ofxWebView::ofxWebView() {
+    
+    lastLoadFileUrl = "";
+    
     window = (NSWindow *)(ofAppGLFWWindow *)ofGetWindowPtr()->getCocoaWindow();
     
     NSRect bounds = {0,0,static_cast<CGFloat>(ofGetWidth()),static_cast<CGFloat>(ofGetHeight())};//[window.contentView bounds]
     setPosition(0,0);
-    setSize(ofGetWidth(),ofGetHeight());
+    setSize(ofGetWidth(), ofGetHeight());
     
     _drawBg = false;
     
-    webView = [[WebView alloc] initWithFrame:bounds
-                                   frameName:@"OF-frame"
-                                   groupName:nil];
+    webView = [[WebView alloc] initWithFrame:bounds frameName:@"OF-frame" groupName:nil];
     
     [webView setWantsLayer:YES];
     [webView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; // stick to the window's size
     [webView setDrawsBackground:NO]; // if you want OF to show up behind the web view
     [webView setCanDrawConcurrently:YES]; // may speed up rendering, worth profiling
     
+    
     [webView setHostWindow:window];
     [window.contentView addSubview:webView];
-    
     [window.contentView setBackgroundColor:[NSColor clearColor]];
-     
+    
     _allowPageLoad = true;
     
     WebListener *webListener = [[WebListener alloc] init];
-    
-    [webListener  setOfView: this];
+    [webListener setOfView: this];
     
     //more delegate options here https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/DisplayWebContent/Concepts/WebKitDesign.html#//apple_ref/doc/uid/20002024-128170
-   // [webView setPolicyDelegate:webListener];
-    //[webView setFrameLoadDelegate:webListener];
+//    [webView setDownloadDelegate:webListener];
+    [webView setPolicyDelegate:webListener];
+    [webView setFrameLoadDelegate:webListener];
     //[webView setResourceLoadDelegate:webListener];
     
-
-    
-    
+//    [NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseUp handler:^ NSEvent * (NSEvent * event) {
+//        [window makeFirstResponder: window.contentView];
+//        return event;
+//    }];
+//
+//    [NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDown handler:^ NSEvent * (NSEvent * event) {
+//        [window makeFirstResponder: window.contentView];
+//        [window makeFirstResponder: webView];
+//        return event;
+//    }];
+//
+//    [NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDragged handler:^ NSEvent * (NSEvent * event) {
+//        [window makeFirstResponder: window.contentView];
+//        return event;
+//    }];
+//
+//    
+//    [NSEvent addLocalMonitorForEventsMatchingMask:NSMouseMoved handler:^ NSEvent * (NSEvent * event) {
+//        [window makeFirstResponder: window.contentView];
+//        return event;
+//    }];
+//    
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSKeyDownMask handler:^ NSEvent * (NSEvent * event) {
+//      [window makeFirstResponder: window.contentView];
+        [window makeFirstResponder: webView];
+        return event;
+    }];
 }
+
 ofxWebView::~ofxWebView(){
-    
    // [window.contentView removeView:webView];
     //webView = 0;
 };
-
-
 
 bool ofxWebView::getAllowPageLoad(){
     return _allowPageLoad;
@@ -182,15 +221,15 @@ void ofxWebView::loadURL(string _url){
     NSURL * url = [NSURL URLWithString:str];
     NSURLRequest * req = [NSURLRequest requestWithURL:url];
     [[webView mainFrame] loadRequest:req];
-    
-
-
-
 };
 
+string ofxWebView::getLastLoadFileUrl() {
+    return lastLoadFileUrl;
+}
 
 void ofxWebView::loadFile(string file, bool relativeToData){
     
+    lastLoadFileUrl = file;
     if(!ofFile::doesFileExist(file,relativeToData)){
         ofLogError()<<"File "<<file<<" not found"<<endl;
         return;
@@ -211,6 +250,14 @@ void ofxWebView::loadFile(string file, bool relativeToData){
 }
 
 
+string ofxWebView::inject(string jsCode) {
+    ofLogVerbose("ofxWebView", "inject " + jsCode);
+    NSString *code = [NSString stringWithUTF8String:jsCode.c_str()];
+    NSString *result = [webView stringByEvaluatingJavaScriptFromString:code];
+    string stringResult = (string)[result UTF8String];
+    ofLogVerbose("ofxWebView", "result " + stringResult);
+    return stringResult;
+}
 
 void ofxWebView::setHTML(string htm,string base){
     NSString *str = [NSString stringWithUTF8String:htm.c_str()];
@@ -221,12 +268,9 @@ void ofxWebView::setHTML(string htm,string base){
 };
 
 void ofxWebView::setDrawsBackground(bool b){
-    
     _drawBg = b;
 
-    
     [webView setDrawsBackground:_drawBg];
-
 };
 
 
@@ -241,12 +285,8 @@ void ofxWebView::toTexture(ofTexture *tex){
     //[bir setSize:imgSize];
     //[webView cacheDisplayInRect:[webView bounds] toBitmapImageRep:bir];
     //NSBitmapToOFTexture(bir, tex,imgSize.width,imgSize.height);
-    
-    
-    
     //NSRect f = (NSRect){getX(), -getY(), getWidth(), getHeight()};
 
-    
     NSRect f = (NSRect){0,0, getWidth(), getHeight()};
     NSBitmapImageRep * bir = [webView bitmapImageRepForCachingDisplayInRect:f];
     [webView cacheDisplayInRect:f toBitmapImageRep:bir];
@@ -282,5 +322,4 @@ void ofxWebView::setWebViewFrame(ofRectangle frame) {
         f = (NSRect){frame.x, -frame.y, frame.width, frame.height};
     }
     [webView setFrame:f];
-    
 }
